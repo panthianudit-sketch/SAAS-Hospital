@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Healthcare System</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -20,8 +20,39 @@
             vertical-align: middle;
         }
         .icon-lg {
-            width: 3rem;
-            height: 3rem;
+            width: 6rem;
+            height: 6rem;
+        }
+        .symbol-icon {
+            width: 2rem;
+            height: 2rem;
+            margin-left: 0.5rem;
+        }
+        .notification-bell {
+            position: relative;
+            display: inline-block;
+        }
+        .notification-badge {
+            position: absolute;
+            top: -0.5rem;
+            right: -0.5rem;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        .login-bg {
+            background-image: url('https://6m01azyun0djf3cw.public.blob.vercel-storage.com/c55f4e85-1afe-41e2-9643-a7fb00b9f892.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .portal-bg {
+            background-image: url('https://6m01azyun0djf3cw.public.blob.vercel-storage.com/3b164222-bec2-47e9-a16a-9e4b0a6d3444.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
         }
     </style>
 </head>
@@ -58,7 +89,7 @@
 
         const XCircle = ({ className = "icon" }) => (
             <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14L8 12m0 0L6 10m2 2l2 2m2-2l-2-2m2 2l2 2M7 7h.01M17 17h.01M9 9h.01M15 15h.01" />
             </svg>
         );
 
@@ -83,6 +114,12 @@
         const Calendar = ({ className = "icon" }) => (
             <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+        );
+
+        const Bell = ({ className = "icon" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1 1m-4-1H5m4-4v2m0-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2h2a2 2 0 002-2v-2" />
             </svg>
         );
 
@@ -176,7 +213,8 @@
             accessLogs: {
                 'patient-demo-001': []
             },
-            auditLogs: []
+            auditLogs: [],
+            notifications: {}
         };
 
         // Password Validation
@@ -207,6 +245,19 @@
                 action,
                 details,
                 timestamp
+            });
+        };
+
+        // Notification Function
+        const addNotification = (userId, message) => {
+            if (!mockData.notifications[userId]) {
+                mockData.notifications[userId] = [];
+            }
+            mockData.notifications[userId].push({
+                id: `notif-${Date.now()}`,
+                message,
+                timestamp: new Date().toISOString(),
+                read: false
             });
         };
 
@@ -265,7 +316,16 @@
                 sessionStorage.removeItem('user');
             };
 
-            return React.createElement(AuthContext.Provider, { value: { user, token, login, logout } }, children);
+            const updateUserProfile = (newUsername, newPassword) => {
+                const updatedUser = { ...user, username: newUsername };
+                setUser(updatedUser);
+                sessionStorage.setItem('user', JSON.stringify(updatedUser));
+                return updatedUser;
+            };
+
+            return React.createElement(AuthContext.Provider, { 
+                value: { user, token, login, logout, updateUserProfile } 
+            }, children);
         };
 
         const useAuth = () => useContext(AuthContext);
@@ -285,6 +345,20 @@
                 const newUserId = body.username;
                 mockData.users[newUserId] = { id: newUserId, ...body };
                 return mockData.users[newUserId];
+            }
+
+            if (endpoint.includes('/api/users') && method === 'PUT') {
+                const userId = body.id;
+                if (body.username && body.username !== userId && mockData.users[body.username]) {
+                    throw new Error('Username already exists');
+                }
+                if (body.username) {
+                    delete mockData.users[userId];
+                    mockData.users[body.username] = { ...mockData.users[userId], ...body, id: body.username };
+                } else {
+                    mockData.users[userId] = { ...mockData.users[userId], ...body };
+                }
+                return mockData.users[body.username || userId];
             }
 
             if (endpoint.includes('/api/appointments') && method === 'POST') {
@@ -315,6 +389,7 @@
                 const transferId = `transfer-${Date.now()}`;
                 const transfer = { id: transferId, ...body, status: 'pending' };
                 mockData.transferRequests[body.patientId].push(transfer);
+                addNotification(body.toUserId, `Data transfer request for patient ${body.patientId} with severity ${body.severity}`);
                 return transfer;
             }
 
@@ -323,6 +398,7 @@
                 if (!mockData.patients[patientId].authorizedDoctors.includes(doctorId)) {
                     mockData.patients[patientId].authorizedDoctors.push(doctorId);
                 }
+                addNotification(doctorId, `Patient ${patientId} has authorized your access to their records.`);
                 return { success: true };
             }
 
@@ -351,10 +427,10 @@
             };
 
             return (
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+                <div className="min-h-screen flex items-center justify-center p-6 login-bg">
                     <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
                         <div className="text-center mb-8">
-                            <Building2 className="icon-lg mx-auto mb-4 text-blue-600" />
+                            <img src="https://6m01azyun0djf3cw.public.blob.vercel-storage.com/Gemini_Generated_Image_ro5x85ro5x85ro5x.png" alt="Company Logo" className="icon-lg mx-auto mb-4" />
                             <h1 className="text-2xl font-bold text-gray-900">Healthcare System</h1>
                             <p className="text-gray-600 mt-2">Login to access patient records</p>
                         </div>
@@ -400,6 +476,124 @@
                                 className="w-full p-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? 'Signing in...' : 'Sign In'}
+                            </button>
+                        </div>
+                    </div>
+                    <footer className="absolute bottom-0 w-full text-center py-4 text-gray-500 text-sm">
+                        Publisher: <span className="font-bold text-blue-600">Anudit Panthi</span>
+                    </footer>
+                </div>
+            );
+        };
+
+        // Profile Management Component
+        const ProfileManagement = () => {
+            const { user, updateUserProfile } = useAuth();
+            const [newUsername, setNewUsername] = useState(user.username);
+            const [newPassword, setNewPassword] = useState('');
+            const [confirmPassword, setConfirmPassword] = useState('');
+            const [successMessage, setSuccessMessage] = useState(null);
+            const [error, setError] = useState(null);
+
+            const updateProfile = async () => {
+                setError(null);
+                setSuccessMessage(null);
+
+                // Validate inputs
+                if (!newUsername) {
+                    setError('Username is required');
+                    return;
+                }
+
+                if (newPassword && newPassword !== confirmPassword) {
+                    setError('Passwords do not match');
+                    return;
+                }
+
+                if (newPassword) {
+                    const passwordErrors = validatePassword(newPassword);
+                    if (passwordErrors.length > 0) {
+                        setError(passwordErrors.join(', '));
+                        return;
+                    }
+                }
+
+                try {
+                    const updateData = {
+                        id: user.id,
+                        username: newUsername,
+                    };
+                    if (newPassword) {
+                        updateData.password = newPassword;
+                    }
+
+                    await mockApiCall('/api/users', {
+                        method: 'PUT',
+                        body: JSON.stringify(updateData)
+                    });
+
+                    // Update local user state
+                    const updatedUser = updateUserProfile(newUsername, newPassword);
+                    
+                    logAudit(user, 'Profile Update', `Updated ${newUsername !== user.username ? 'username' : ''}${newUsername !== user.username && newPassword ? ' and ' : ''}${newPassword ? 'password' : ''}`);
+
+                    setSuccessMessage('Profile updated successfully');
+                    setTimeout(() => setSuccessMessage(null), 5000);
+                    setNewPassword('');
+                    setConfirmPassword('');
+                } catch (error) {
+                    setError(error.message || 'Failed to update profile');
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-xl font-bold">Profile Management</h2>
+
+                    {successMessage && (
+                        <div className="p-3 bg-green-100 text-green-700 rounded">
+                            <CheckCircle className="w-4 h-4 inline mr-2" /> {successMessage}
+                        </div>
+                    )}
+
+                    {error && (
+                        <div className="p-3 bg-red-100 text-red-700 rounded">
+                            <XCircle className="w-4 h-4 inline mr-2" /> {error}
+                        </div>
+                    )}
+
+                    <div className="p-4 bg-white rounded shadow">
+                        <h3 className="text-lg font-semibold mb-4">Update Profile</h3>
+                        <div className="grid grid-cols-1 gap-4">
+                            <input
+                                type="text"
+                                value={newUsername}
+                                onChange={(e) => setNewUsername(e.target.value)}
+                                placeholder="New Username"
+                                className="p-2 border rounded"
+                            />
+                            <input
+                                type="password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                placeholder="New Password (leave blank to keep current)"
+                                className="p-2 border rounded"
+                            />
+                            <input
+                                type="password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                placeholder="Confirm New Password"
+                                className="p-2 border rounded"
+                            />
+                        </div>
+                        <div className="mt-4 flex space-x-2">
+                            <button
+                                onClick={updateProfile}
+                                disabled={!newUsername}
+                                className="p-2 bg-green-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Update Profile
                             </button>
                         </div>
                     </div>
@@ -639,12 +833,13 @@
             );
         };
 
-        // Patient Data Management Component
+        // Patient Data Management Component (Updated with file addition)
         const PatientDataManagement = () => {
             const { user } = useAuth();
             const [patients, setPatients] = useState([]);
             const [selectedPatient, setSelectedPatient] = useState('');
-            const [healthInfo, setHealthInfo] = useState('');
+            const [healthNotes, setHealthNotes] = useState('');
+            const [attachment, setAttachment] = useState(null);
             const [successMessage, setSuccessMessage] = useState(null);
             const [error, setError] = useState(null);
 
@@ -657,30 +852,57 @@
 
             const addHealthInfo = async () => {
                 setError(null);
-                if (!selectedPatient || !healthInfo) {
-                    setError('Please select a patient and provide health information.');
+                if (!selectedPatient) {
+                    setError('Please select a patient.');
+                    return;
+                }
+                if (!healthNotes && !attachment) {
+                    setError('Please provide notes or attach a file.');
                     return;
                 }
 
                 try {
+                    let healthEntry = {
+                        date: new Date().toISOString(),
+                        details: healthNotes,
+                        addedBy: user.name
+                    };
+
+                    if (attachment) {
+                        const base64 = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(reader.result.split(',')[1]);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(attachment);
+                        });
+                        healthEntry.attachment = {
+                            name: attachment.name,
+                            content: base64,
+                            mimeType: attachment.type
+                        };
+                    }
+
                     await mockApiCall('/api/patient-data', {
                         method: 'POST',
                         body: JSON.stringify({
                             patientId: selectedPatient,
-                            healthInfo: {
-                                date: new Date().toISOString(),
-                                details: healthInfo,
-                                addedBy: user.name
-                            }
+                            healthInfo: healthEntry
                         })
                     });
 
-                    logAudit(user, 'Add Health Info', `Added health info for patient ${selectedPatient}`);
+                    logAudit(user, 'Add Health Info', `Added health info${attachment ? ' with file' : ''} for patient ${selectedPatient}`);
 
                     setSuccessMessage('Health information added successfully.');
                     setTimeout(() => setSuccessMessage(null), 5000);
                     setSelectedPatient('');
-                    setHealthInfo('');
+                    setHealthNotes('');
+                    setAttachment(null);
+
+                    // Refresh patients
+                    const authorizedPatients = Object.values(mockData.patients).filter(p => 
+                        p.authorizedDoctors.includes(user.id)
+                    );
+                    setPatients(authorizedPatients);
                 } catch (error) {
                     setError('Failed to add health info: ' + error.message);
                 }
@@ -718,16 +940,21 @@
                                 ))}
                             </select>
                             <textarea
-                                value={healthInfo}
-                                onChange={(e) => setHealthInfo(e.target.value)}
+                                value={healthNotes}
+                                onChange={(e) => setHealthNotes(e.target.value)}
                                 placeholder="Enter health information (e.g., diagnosis, treatment)"
+                                className="p-2 border rounded"
+                            />
+                            <input
+                                type="file"
+                                onChange={(e) => setAttachment(e.target.files[0])}
                                 className="p-2 border rounded"
                             />
                         </div>
                         <div className="mt-4">
                             <button
                                 onClick={addHealthInfo}
-                                disabled={!selectedPatient || !healthInfo}
+                                disabled={!selectedPatient || (!healthNotes && !attachment)}
                                 className="p-2 bg-green-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Add Health Info
@@ -754,7 +981,18 @@
                                             patient.healthInfo.map((info, index) => (
                                                 <div key={index} className="mt-1">
                                                     <p className="text-sm text-gray-600">Date: {new Date(info.date).toLocaleString()}</p>
-                                                    <p className="text-sm text-gray-600">Details: {info.details}</p>
+                                                    {info.details && <p className="text-sm text-gray-600">Details: {info.details}</p>}
+                                                    {info.attachment && (
+                                                        <p className="text-sm text-gray-600">
+                                                            Attachment: <a 
+                                                                href={`data:${info.attachment.mimeType};base64,${info.attachment.content}`} 
+                                                                download={info.attachment.name}
+                                                                className="text-blue-600 underline"
+                                                            >
+                                                                {info.attachment.name}
+                                                            </a>
+                                                        </p>
+                                                    )}
                                                     <p className="text-sm text-gray-500">Added by: {info.addedBy}</p>
                                                 </div>
                                             ))
@@ -768,12 +1006,13 @@
             );
         };
 
-        // Data Transfer Component
+        // Data Transfer Component (Updated with severity)
         const DataTransfer = () => {
             const { user } = useAuth();
             const [patients, setPatients] = useState([]);
             const [selectedPatient, setSelectedPatient] = useState('');
             const [selectedStaff, setSelectedStaff] = useState('');
+            const [severity, setSeverity] = useState('average');
             const [staffList, setStaffList] = useState([]);
             const [successMessage, setSuccessMessage] = useState(null);
             const [error, setError] = useState(null);
@@ -792,8 +1031,8 @@
 
             const requestDataTransfer = async () => {
                 setError(null);
-                if (!selectedPatient || !selectedStaff) {
-                    setError('Please select a patient and a staff member.');
+                if (!selectedPatient || !selectedStaff || !severity) {
+                    setError('Please select a patient, a staff member, and severity.');
                     return;
                 }
 
@@ -804,7 +1043,8 @@
                         fromUserId: user.id,
                         toUserId: selectedStaff,
                         toUserRole: staff.role,
-                        toUserName: staff.name
+                        toUserName: staff.name,
+                        severity
                     };
 
                     await mockApiCall('/api/data-transfer', {
@@ -819,12 +1059,13 @@
                         });
                     }
 
-                    logAudit(user, 'Request Data Transfer', `Requested data transfer for patient ${selectedPatient} to ${staff.name}${staff.role !== 'doctor' ? ' and authorized access' : ''}`);
+                    logAudit(user, 'Request Data Transfer', `Requested data transfer for patient ${selectedPatient} to ${staff.name} with severity ${severity}${staff.role !== 'doctor' ? ' and authorized access' : ''}`);
 
-                    setSuccessMessage(`Data transfer requested to ${staff.name}${staff.role !== 'doctor' ? ' and access granted' : ''}.`);
+                    setSuccessMessage(`Data transfer requested to ${staff.name} with severity ${severity}${staff.role !== 'doctor' ? ' and access granted' : ''}.`);
                     setTimeout(() => setSuccessMessage(null), 5000);
                     setSelectedPatient('');
                     setSelectedStaff('');
+                    setSeverity('average');
                 } catch (error) {
                     setError('Failed to request data transfer: ' + error.message);
                 }
@@ -873,11 +1114,20 @@
                                     </option>
                                 ))}
                             </select>
+                            <select
+                                value={severity}
+                                onChange={(e) => setSeverity(e.target.value)}
+                                className="p-2 border rounded"
+                            >
+                                <option value="high">High</option>
+                                <option value="average">Average</option>
+                                <option value="low">Low</option>
+                            </select>
                         </div>
                         <div className="mt-4">
                             <button
                                 onClick={requestDataTransfer}
-                                disabled={!selectedPatient || !selectedStaff}
+                                disabled={!selectedPatient || !selectedStaff || !severity}
                                 className="p-2 bg-green-500 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Request Transfer
@@ -899,6 +1149,7 @@
                                             <h4 className="font-medium text-lg">Patient: {mockData.patients[transfer.patientId].name[0].given[0]} {mockData.patients[transfer.patientId].name[0].family}</h4>
                                             <p className="text-sm text-gray-600">From: {mockData.users[transfer.fromUserId].name}</p>
                                             <p className="text-sm text-gray-600">To: {transfer.toUserName} ({transfer.toUserRole})</p>
+                                            <p className="text-sm text-gray-600">Severity: {transfer.severity}</p>
                                             <p className="text-sm text-blue-600 font-medium">Status: {transfer.status}</p>
                                         </div>
                                     </div>
@@ -974,6 +1225,7 @@
                                         <div>
                                             <h4 className="font-medium text-lg">Doctor: {transfer.toUserName}</h4>
                                             <p className="text-sm text-gray-600">Requested by: {mockData.users[transfer.fromUserId].name}</p>
+                                            <p className="text-sm text-gray-600">Severity: {transfer.severity}</p>
                                             <p className="text-sm text-blue-600 font-medium">Status: {transfer.status}</p>
                                         </div>
                                         <button
@@ -1458,16 +1710,66 @@
             );
         };
 
+        // Notifications Component
+        const Notifications = ({ userId }) => {
+            const [notifications, setNotifications] = useState(mockData.notifications[userId] || []);
+            const [showPopup, setShowPopup] = useState(false);
+
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    setNotifications(mockData.notifications[userId] || []);
+                }, 1000);
+                return () => clearInterval(interval);
+            }, [userId]);
+
+            const unreadCount = notifications.filter(n => !n.read).length;
+
+            const markAsRead = (notifId) => {
+                const notif = notifications.find(n => n.id === notifId);
+                if (notif) {
+                    notif.read = true;
+                    setNotifications([...notifications]);
+                }
+            };
+
+            return (
+                <div className="notification-bell ml-4">
+                    <button onClick={() => setShowPopup(!showPopup)}>
+                        <Bell className="w-6 h-6 text-gray-600" />
+                        {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+                    </button>
+                    {showPopup && (
+                        <div className="absolute right-0 mt-2 w-64 bg-white rounded shadow-lg p-4 z-10">
+                            <h4 className="font-bold mb-2">Notifications</h4>
+                            {notifications.length === 0 ? (
+                                <p>No notifications</p>
+                            ) : (
+                                notifications.map(notif => (
+                                    <div key={notif.id} className={`p-2 border-b ${notif.read ? 'text-gray-500' : 'text-black'}`}>
+                                        <p>{notif.message}</p>
+                                        <p className="text-xs">{new Date(notif.timestamp).toLocaleString()}</p>
+                                        {!notif.read && (
+                                            <button onClick={() => markAsRead(notif.id)} className="text-blue-500 text-xs">Mark as read</button>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
         // Dashboard Component
         const Dashboard = () => {
             const { user, logout } = useAuth();
             const [activeTab, setActiveTab] = useState('overview');
 
             return (
-                <div className="min-h-screen bg-gray-50 p-6">
+                <div className="min-h-screen p-6 portal-bg">
                     <div className="flex justify-between mb-6">
                         <div className="flex items-center space-x-2">
-                            <Building2 className="w-6 h-6" />
+                            <img src="https://6m01azyun0djf3cw.public.blob.vercel-storage.com/Gemini_Generated_Image_ro5x85ro5x85ro5x.png" alt="Company Logo" className="w-12 h-12" />
                             <h1 className="text-xl font-bold">Healthcare System</h1>
                             {user.specialization && (
                                 <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
@@ -1477,6 +1779,7 @@
                         </div>
                         <div className="flex items-center space-x-2">
                             <span className="text-sm text-gray-600">Welcome, {user.name}</span>
+                            {['doctor', 'nurse', 'clinical'].includes(user.role) && <Notifications userId={user.id} />}
                             <button 
                                 onClick={logout}
                                 className="flex items-center p-2 bg-red-500 text-white rounded"
@@ -1494,6 +1797,12 @@
                             className={`mr-2 p-2 ${activeTab === 'overview' ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded`}
                         >
                             Overview
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('profile')}
+                            className={`mr-2 p-2 ${activeTab === 'profile' ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded`}
+                        >
+                            Profile
                         </button>
                         {user.role === 'receptionist' && (
                             <>
@@ -1583,6 +1892,9 @@
                         </div>
                     )}
 
+                    {activeTab === 'profile' && (
+                        <ProfileManagement />
+                    )}
                     {activeTab === 'doctors' && user.role === 'receptionist' && (
                         <DoctorManagement />
                     )}
@@ -1607,6 +1919,9 @@
                     {activeTab === 'audit' && (
                         <AuditLog />
                     )}
+                    <footer className="mt-8 text-center text-gray-500 text-sm">
+                        Publisher: <span className="font-bold text-blue-600">Anudit Panthi</span>
+                    </footer>
                 </div>
             );
         };
